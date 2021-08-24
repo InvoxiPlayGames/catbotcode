@@ -17,31 +17,18 @@ namespace catbotcode
         static Random rng = new Random();
         static HttpStatusCode LastResponseCode; // oh no
 
-        // crappy helper functions to GET/POST request
-        // i am very stubborn and i do not want to bother with real async so this works
-        // TODO: please fix this
-        static string GETRequest(string URL)
+        static async Task<string> GETRequest(string URL)
         {
-            Task<HttpResponseMessage> reqtask = client.GetAsync(URL);
-            reqtask.Wait();
-            HttpResponseMessage response = reqtask.Result;
-            Task<string> contenttask = response.Content.ReadAsStringAsync();
-            contenttask.Wait();
-            string content = contenttask.Result;
+            HttpResponseMessage response = await client.GetAsync(URL);
             LastResponseCode = response.StatusCode;
-            return content;
+            return await response.Content.ReadAsStringAsync();
         }
 
-        static string POSTRequest(string URL, HttpContent postdata)
+        static async Task<string> POSTRequest(string URL, HttpContent postdata)
         {
-            Task<HttpResponseMessage> reqtask = client.PostAsync(URL, postdata);
-            reqtask.Wait();
-            HttpResponseMessage response = reqtask.Result;
-            Task<string> contenttask = response.Content.ReadAsStringAsync();
-            contenttask.Wait();
-            string content = contenttask.Result;
+            HttpResponseMessage response = await client.PostAsync(URL, postdata);
             LastResponseCode = response.StatusCode;
-            return content;
+            return await response.Content.ReadAsStringAsync();
         }
 
         static void Main(string[] args)
@@ -80,7 +67,7 @@ namespace catbotcode
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config["AccessToken"]);
 
             // test that our account's token is real
-            string accountjson = GETRequest("/api/v1/accounts/verify_credentials");
+            string accountjson = GETRequest("/api/v1/accounts/verify_credentials").Result;
             if (LastResponseCode != HttpStatusCode.OK)
             {
                 Console.WriteLine($"Error: got response code of {LastResponseCode} trying to fetch the account.");
@@ -104,7 +91,7 @@ namespace catbotcode
                 byte[] imagefile = File.ReadAllBytes(filepath);
                 MultipartFormDataContent multipartContent = new MultipartFormDataContent();
                 multipartContent.Add(new ByteArrayContent(imagefile), "\"file\"", $"\"{filename}\"");
-                string mediajson = POSTRequest("/api/v1/media", multipartContent);
+                string mediajson = POSTRequest("/api/v1/media", multipartContent).Result;
                 if (LastResponseCode != HttpStatusCode.OK && LastResponseCode != HttpStatusCode.Created) // certain versions of the mastodon API will return created
                 {
                     Console.WriteLine($"ERROR! Failed to upload the attachment. HTTP Code: {LastResponseCode}");
@@ -136,7 +123,7 @@ namespace catbotcode
                     postopts["status"] += filename + "\n";
                 }
                 postopts["media_ids[]"] = mediaid;
-                string statusjson = POSTRequest("/api/v1/statuses", new FormUrlEncodedContent(postopts));
+                string statusjson = POSTRequest("/api/v1/statuses", new FormUrlEncodedContent(postopts)).Result;
                 if (LastResponseCode != HttpStatusCode.OK && LastResponseCode != HttpStatusCode.Created) // certain versions of the mastodon API will return created
                 {
                     Console.WriteLine($"ERROR! Failed to post the toot. HTTP Code: {LastResponseCode}");
